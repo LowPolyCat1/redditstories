@@ -81,7 +81,10 @@ async fn main() -> anyhow::Result<()> {
 
     let chunks = chunk_text(&story, args.chunk_chars);
     info!("Split story into {} chunks", chunks.len());
-    debug!("First chunk preview: {}", &chunks[0].chars().take(100).collect::<String>());
+    debug!(
+        "First chunk preview: {}",
+        &chunks[0].chars().take(100).collect::<String>()
+    );
 
     let tmp_dir = "rs_tmp";
     if Path::new(tmp_dir).exists() {
@@ -110,21 +113,37 @@ async fn main() -> anyhow::Result<()> {
     info!("Calculating WAV durations and building subtitles");
     let mut srt_entries = Vec::new();
     let mut cumulative_seconds = 0.0_f64;
+
     for (i, part) in part_files.iter().enumerate() {
-        match wav_duration_seconds(part) {
-            Ok(dur) => {
-                info!("Chunk {} duration: {:.2} seconds", i, dur);
-                let start = cumulative_seconds;
-                let end = cumulative_seconds + dur;
-                let subtitle_text = &chunks[i];
-                srt_entries.push((start, end, subtitle_text.clone()));
-                cumulative_seconds = end;
-            }
-            Err(e) => {
-                error!("Failed to read WAV duration for {}: {:?}", part, e);
-                return Err(e);
-            }
+        let dur = wav_duration_seconds(part)?;
+        info!("Chunk {} duration: {:.2} seconds", i, dur);
+        let start = cumulative_seconds;
+        let end = cumulative_seconds + dur;
+        let chunk_text = &chunks[i];
+
+        // Count chars excluding whitespace
+        let total_chars: usize = chunk_text.chars().filter(|c| !c.is_whitespace()).count();
+        if total_chars == 0 {
+            // no text? add whole chunk subtitle anyway
+            srt_entries.push((start, end, chunk_text.clone()));
+            cumulative_seconds = end;
+            continue;
         }
+
+        // Split by whitespace into words
+        let words: Vec<&str> = chunk_text.split_whitespace().collect();
+        let mut word_start = start;
+
+        for word in words {
+            let word_chars = word.chars().count();
+            let word_duration = dur * (word_chars as f64) / (total_chars as f64);
+            let word_end = word_start + word_duration;
+
+            srt_entries.push((word_start, word_end, word.to_string()));
+            word_start = word_end;
+        }
+
+        cumulative_seconds = end;
     }
 
     let srt_path = format!("{}/subs.srt", tmp_dir);
@@ -135,7 +154,6 @@ async fn main() -> anyhow::Result<()> {
     {
         let mut f = File::create(&concat_list)?;
         for p in &part_files {
-            // Only write the filename, not the full path
             let fname = Path::new(p)
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -149,7 +167,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Concatenating WAV chunks into one file {}", combined_path);
 
     let status = Command::new("ffmpeg")
-        .current_dir(tmp_dir) // IMPORTANT: run ffmpeg in tmp_dir
+        .current_dir(tmp_dir)
         .args([
             "-y",
             "-f",
@@ -167,7 +185,7 @@ async fn main() -> anyhow::Result<()> {
     if !status.success() {
         warn!("ffmpeg concat with copy failed; retrying with re-encode");
         let status2 = Command::new("ffmpeg")
-            .current_dir(tmp_dir) // same here
+            .current_dir(tmp_dir)
             .args([
                 "-y",
                 "-f",
