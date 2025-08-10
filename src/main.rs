@@ -197,7 +197,7 @@ async fn main() -> anyhow::Result<()> {
         &combined_path,
         "-vf",
         &format!(
-            "subtitles={}:force_style='Fontsize=28,OutlineColour=&H80000000&,BorderStyle=4,Shadow=0'",
+            "subtitles={}:force_style='Fontsize=28,OutlineColour=&H000000&,Outline=3,Shadow=0'",
             srt_path
         ),
         "-map",
