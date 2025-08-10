@@ -197,7 +197,7 @@ async fn main() -> anyhow::Result<()> {
         &combined_path,
         "-vf",
         &format!(
-            "subtitles={}:force_style='Fontsize=28,OutlineColour=&H000000&,Outline=3,Shadow=0'",
+            "scale=1920:1080,subtitles={}:force_style='Fontsize=28,OutlineColour=&H000000&,Outline=3,Shadow=0'",
             srt_path
         ),
         "-map",
@@ -208,6 +208,8 @@ async fn main() -> anyhow::Result<()> {
         "libx264",
         "-c:a",
         "aac",
+        "-r",
+        "60",
         "-shortest",
         &args.out,
     ];
