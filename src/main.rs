@@ -121,22 +121,28 @@ async fn main() -> anyhow::Result<()> {
         let end = cumulative_seconds + dur;
         let chunk_text = &chunks[i];
 
-        // Count chars excluding whitespace
-        let total_chars: usize = chunk_text.chars().filter(|c| !c.is_whitespace()).count();
-        if total_chars == 0 {
-            // no text? add whole chunk subtitle anyway
+        // Power law smoothing factor alpha < 1 for more time on short words
+        let alpha = 0.5;
+
+        // Split chunk text into words
+        let words: Vec<&str> = chunk_text.split_whitespace().collect();
+        if words.is_empty() {
+            // no words, fallback to whole chunk subtitle
             srt_entries.push((start, end, chunk_text.clone()));
             cumulative_seconds = end;
             continue;
         }
 
-        // Split by whitespace into words
-        let words: Vec<&str> = chunk_text.split_whitespace().collect();
-        let mut word_start = start;
+        // Calculate total weight using powf(alpha)
+        let total_weight: f64 = words.iter()
+            .map(|w| (w.chars().count() as f64).powf(alpha))
+            .sum();
 
+        let mut word_start = start;
         for word in words {
             let word_chars = word.chars().count();
-            let word_duration = dur * (word_chars as f64) / (total_chars as f64);
+            let word_weight = (word_chars as f64).powf(alpha);
+            let word_duration = dur * word_weight / total_weight;
             let word_end = word_start + word_duration;
 
             srt_entries.push((word_start, word_end, word.to_string()));
