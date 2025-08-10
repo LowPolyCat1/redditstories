@@ -1,0 +1,7 @@
+/target
+Cargo.lock
+out.mp4
+rs_tmp
+*.onnx
+*.onnx.json
+res/bg.mp4
