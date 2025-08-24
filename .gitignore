@@ -5,4 +5,4 @@ rs_tmp
 *.onnx
 *.onnx.json
 res/*
-used_posts.json
+config/used_posts.json
