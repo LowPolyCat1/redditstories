@@ -35,8 +35,20 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
         let mut current_time_in_chunk = start_time_of_chunk;
         for element in elements {
             match element {
-                "," => current_time_in_chunk += COMMA_PAUSE,
-                "." | "!" | "?" => current_time_in_chunk += SENTENCE_END_PAUSE,
+                "," => {
+                    // Pause nach Komma als eigenen SRT-Eintrag
+                    let pause_start = current_time_in_chunk;
+                    let pause_end = pause_start + COMMA_PAUSE;
+                    srt_entries.push((pause_start, pause_end, String::from(" ")));
+                    current_time_in_chunk = pause_end;
+                },
+                "." | "!" | "?" | ";" => {
+                    // Pause nach Satzende als eigenen SRT-Eintrag
+                    let pause_start = current_time_in_chunk;
+                    let pause_end = pause_start + SENTENCE_END_PAUSE;
+                    srt_entries.push((pause_start, pause_end, String::from(" ")));
+                    current_time_in_chunk = pause_end;
+                },
                 word => {
                     let word_weight = (word.chars().count() as f64).powf(alpha);
                     let word_duration = if total_weight > 0.0 {
