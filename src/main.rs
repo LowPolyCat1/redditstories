@@ -3,6 +3,7 @@ use hound::WavReader;
 use regex::Regex;
 use reqwest::header::USER_AGENT;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
@@ -50,6 +51,7 @@ struct RedditChild {
 
 #[derive(Debug, Deserialize)]
 struct RedditPost {
+    id: String,
     title: String,
     selftext: String,
     is_self: Option<bool>,
@@ -97,7 +99,12 @@ async fn main() -> anyhow::Result<()> {
     let mut part_files = Vec::new();
     for (i, chunk) in chunks.iter().enumerate() {
         let fname = format!("{}/part_{:03}.wav", tmp_dir, i);
-        info!("Generating TTS chunk {}/{} ({} chars)", i + 1, chunks.len(), chunk.len());
+        info!(
+            "Generating TTS chunk {}/{} ({} chars)",
+            i + 1,
+            chunks.len(),
+            chunk.len()
+        );
         debug!("Chunk text: {}", chunk);
         match tts_generate_chunk(&args.piper_model, chunk, &fname) {
             Ok(_) => info!("Finished TTS chunk {}: {}", i, fname),
@@ -134,7 +141,8 @@ async fn main() -> anyhow::Result<()> {
         }
 
         // Calculate total weight using powf(alpha)
-        let total_weight: f64 = words.iter()
+        let total_weight: f64 = words
+            .iter()
             .map(|w| (w.chars().count() as f64).powf(alpha))
             .sum();
 
@@ -175,16 +183,7 @@ async fn main() -> anyhow::Result<()> {
     let status = Command::new("ffmpeg")
         .current_dir(tmp_dir)
         .args([
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            "files.txt",
-            "-c",
-            "copy",
-            "combined.wav",
+            "-y", "-f", "concat", "-safe", "0", "-i", "files.txt", "-c", "copy", "combined.wav",
         ])
         .status()?;
 
@@ -193,15 +192,7 @@ async fn main() -> anyhow::Result<()> {
         let status2 = Command::new("ffmpeg")
             .current_dir(tmp_dir)
             .args([
-                "-y",
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                "files.txt",
-                "-c:a",
-                "pcm_s16le",
+                "-y", "-f", "concat", "-safe", "0", "-i", "files.txt", "-c:a", "pcm_s16le",
                 "combined.wav",
             ])
             .status()?;
@@ -221,7 +212,7 @@ async fn main() -> anyhow::Result<()> {
         &combined_path,
         "-vf",
         &format!(
-            "scale=1920:1080,subtitles={}:force_style='Fontsize=28,OutlineColour=&H000000&,Outline=3,Shadow=0'",
+            "scale=1080:1920,subtitles={}:force_style='Fontsize=28,OutlineColour=&H000000&,Outline=3,Shadow=0'",
             srt_path
         ),
         "-map",
@@ -264,25 +255,53 @@ async fn fetch_reddit_story(subreddit: &str, limit: usize) -> anyhow::Result<Str
         .await?;
 
     let parsed: RedditListing = serde_json::from_str(&res)?;
+
+    let used_path = "used_posts.json";
+    let mut used_ids = load_used_ids(used_path)?;
+
     for child in parsed.data.children {
         let post = child.data;
         let is_self = post.is_self.unwrap_or(true);
         let nsfw = post.over_18.unwrap_or(false);
-        if nsfw {
-            debug!("Skipping NSFW post: {}", post.title);
+
+        if nsfw || used_ids.contains(&post.id) {
+            debug!("Skipping post (NSFW or already used): {}", post.title);
             continue;
         }
+
         let text = if is_self && !post.selftext.trim().is_empty() {
             format!("{}.\n\n{}", post.title.trim(), post.selftext.trim())
         } else {
             post.title.trim().to_string()
         };
+
         if !text.trim().is_empty() {
             info!("Selected post: {}", post.title);
+
+            // mark as used
+            used_ids.insert(post.id.clone());
+            save_used_ids(used_path, &used_ids)?;
+
             return Ok(text);
         }
     }
+
     anyhow::bail!("No suitable posts found in subreddit {}", subreddit);
+}
+
+fn load_used_ids(path: &str) -> anyhow::Result<HashSet<String>> {
+    if !Path::new(path).exists() {
+        return Ok(HashSet::new());
+    }
+    let data = fs::read_to_string(path)?;
+    let ids: Vec<String> = serde_json::from_str(&data)?;
+    Ok(ids.into_iter().collect())
+}
+
+fn save_used_ids(path: &str, ids: &HashSet<String>) -> anyhow::Result<()> {
+    let data = serde_json::to_string_pretty(&ids)?;
+    fs::write(path, data)?;
+    Ok(())
 }
 
 fn chunk_text(text: &str, max_chars: usize) -> Vec<String> {

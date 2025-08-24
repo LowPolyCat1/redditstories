@@ -4,4 +4,5 @@ out.mp4
 rs_tmp
 *.onnx
 *.onnx.json
-res/bg.mp4
+res/*
+used_posts.json
