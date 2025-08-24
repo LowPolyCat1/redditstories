@@ -7,9 +7,10 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
     let mut srt_entries = Vec::new();
     let mut cumulative_seconds = 0.0_f64;
     for (_i, (part, chunk_text)) in tts_results.iter().enumerate() {
-        let dur = wav_duration_seconds(part)?;
-        let start_time_of_chunk = cumulative_seconds;
-        let end_time_of_chunk = cumulative_seconds + dur;
+        let dur = crate::audio::wav_duration_seconds(part)?;
+        let leading_silence = crate::audio::detect_leading_silence(part, 500, 2000).unwrap_or(0.0); // Schwellenwert und Mindestlänge ggf. anpassen
+        let start_time_of_chunk = cumulative_seconds + leading_silence;
+        let end_time_of_chunk = start_time_of_chunk + (dur - leading_silence);
         const COMMA_PAUSE: f64 = 0.2;
         const SENTENCE_END_PAUSE: f64 = 0.4;
         let word_regex = Regex::new(r"(\w[\w'-]*)|([,.!?])").unwrap();
@@ -28,8 +29,8 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
                 _ => word_elements.push(element),
             }
         }
-        let word_time_available = (dur - total_pause_time).max(0.0);
-        let alpha = 0.5;
+        let word_time_available = (dur - leading_silence - total_pause_time).max(0.0);
+        let alpha = 0.75;
         let total_weight: f64 = word_elements.iter().map(|w| (w.chars().count() as f64).powf(alpha)).sum();
         let mut current_time_in_chunk = start_time_of_chunk;
         for element in elements {
