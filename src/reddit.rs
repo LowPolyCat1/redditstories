@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use reqwest::header::USER_AGENT;
 use tracing::{debug, info};
-use crate::utils::{load_forbidden_words, sanitize_post};
+use crate::utils::{load_forbidden_words, sanitize_post, correct_grammar};
 
 #[derive(Debug, Deserialize)]
 pub struct RedditListing {
@@ -69,10 +69,12 @@ pub async fn fetch_reddit_story(subreddit: &str, limit: usize, min_chars: usize)
 
         if let Some(clean) = sanitize_post(&text, &forbidden, max_words) {
             if !clean.trim().is_empty() && clean.chars().count() >= min_chars {
+                // Grammatikkorrektur anwenden
+                let corrected = correct_grammar(&clean).await.unwrap_or(clean.clone());
                 info!("Selected post: {}", post.title);
                 used_ids.insert(post.id.clone());
                 save_used_ids(used_path, &used_ids)?;
-                return Ok(clean);
+                return Ok(corrected);
             }
         }
     }
