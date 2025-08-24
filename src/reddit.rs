@@ -69,7 +69,6 @@ pub async fn fetch_reddit_story(subreddit: &str, limit: usize, min_chars: usize)
 
         if let Some(clean) = sanitize_post(&text, &forbidden, max_words) {
             if !clean.trim().is_empty() && clean.chars().count() >= min_chars {
-                // Grammatikkorrektur anwenden
                 let corrected = correct_grammar(&clean).await.unwrap_or(clean.clone());
                 info!("Selected post: {}", post.title);
                 used_ids.insert(post.id.clone());
