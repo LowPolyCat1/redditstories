@@ -8,8 +8,6 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::time::Duration;
-use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber;
 
@@ -27,7 +25,7 @@ struct Args {
     #[clap(long, default_value = "./en_US-amy-medium.onnx")]
     piper_model: String,
 
-    #[clap(long, default_value_t = 100)]
+    #[clap(long, default_value_t = 10)]
     try_posts: usize,
 
     #[clap(long, default_value_t = 250)]
@@ -82,7 +80,8 @@ async fn main() -> anyhow::Result<()> {
     info!("Using story (short preview): {:.200}", story.replace('\n', " "));
 
     let chunks = chunk_text(&story, args.chunk_chars);
-    info!("Split story into {} chunks", chunks.len());
+    let num_chunks = chunks.len(); // Store the length before moving `chunks`
+    info!("Split story into {} chunks", num_chunks);
     debug!(
         "First chunk preview: {}",
         &chunks[0].chars().take(100).collect::<String>()
@@ -96,41 +95,60 @@ async fn main() -> anyhow::Result<()> {
     fs::create_dir_all(tmp_dir)?;
     info!("Created tmp directory '{}'", tmp_dir);
 
-    let mut part_files = Vec::new();
-    for (i, chunk) in chunks.iter().enumerate() {
+    // --- Start of Concurrency Implementation ---
+    let mut tasks = Vec::new();
+    // The `chunks` vector is moved here. The loop consumes it, but this is fine
+    // because we have already stored the length in `num_chunks`.
+    for (i, chunk) in chunks.into_iter().enumerate() {
         let fname = format!("{}/part_{:03}.wav", tmp_dir, i);
+        let piper_model = args.piper_model.clone();
+
         info!(
-            "Generating TTS chunk {}/{} ({} chars)",
+            "Spawning TTS generation for chunk {}/{} ({} chars)",
             i + 1,
-            chunks.len(),
+            num_chunks, // Use the stored length here
             chunk.len()
         );
-        debug!("Chunk text: {}", chunk);
-        match tts_generate_chunk(&args.piper_model, chunk, &fname) {
-            Ok(_) => info!("Finished TTS chunk {}: {}", i, fname),
-            Err(e) => {
-                error!("Failed to generate TTS chunk {}: {:?}", i, e);
-                return Err(e);
+
+        // A `chunk` is a `String` and is moved into the async block.
+        // `piper_model` is a `String`, so we clone it.
+        let task = tokio::task::spawn(async move {
+            match tts_generate_chunk(&piper_model, &chunk, &fname) {
+                Ok(_) => {
+                    info!("Finished TTS chunk {}: {}", i, fname);
+                    // Return the filename and the original chunk text
+                    Ok((fname, chunk))
+                }
+                Err(e) => {
+                    error!("Failed to generate TTS chunk {}: {:?}", i, e);
+                    Err(e)
+                }
             }
-        }
-        part_files.push(fname);
-        sleep(Duration::from_millis(150)).await;
+        });
+        tasks.push(task);
     }
+
+    let mut tts_results = Vec::new();
+    for task in tasks {
+        // `await` on the tasks to get the results.
+        // The `?` operator propagates errors from the spawned task.
+        let (fname, chunk) = task.await??;
+        tts_results.push((fname, chunk));
+    }
+    // --- End of Concurrency Implementation ---
 
     info!("Calculating WAV durations and building subtitles");
     let mut srt_entries = Vec::new();
     let mut cumulative_seconds = 0.0_f64;
 
-    // --- Start of Updated Subtitle Logic ---
-    for (i, part) in part_files.iter().enumerate() {
+    // Use `.iter()` to borrow `tts_results` without moving it
+    for (i, (part, chunk_text)) in tts_results.iter().enumerate() {
         let dur = wav_duration_seconds(part)?;
         info!("Chunk {} duration: {:.2} seconds", i, dur);
         let start_time_of_chunk = cumulative_seconds;
         let end_time_of_chunk = cumulative_seconds + dur;
-        let chunk_text = &chunks[i];
 
         // Step 1: Define realistic pause durations for punctuation (in seconds).
-        // You can tune these values to better match your chosen TTS voice.
         const COMMA_PAUSE: f64 = 0.20; // 200ms pause for a comma
         const SENTENCE_END_PAUSE: f64 = 0.40; // 400ms pause for a period/etc.
 
@@ -194,7 +212,6 @@ async fn main() -> anyhow::Result<()> {
 
         cumulative_seconds = end_time_of_chunk;
     }
-    // --- End of Updated Subtitle Logic ---
 
     let srt_path = format!("{}/subs.srt", tmp_dir);
     info!("Writing subtitles to {}", srt_path);
@@ -203,7 +220,8 @@ async fn main() -> anyhow::Result<()> {
     let concat_list = format!("{}/files.txt", tmp_dir);
     {
         let mut f = File::create(&concat_list)?;
-        for p in &part_files {
+        // Use `tts_results.iter()` again to get references to the filenames
+        for p in tts_results.iter().map(|(p, _)| p) {
             let fname = Path::new(p)
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -381,7 +399,7 @@ fn tts_generate_chunk(model: &str, text: &str, out_path: &str) -> anyhow::Result
     let mut child = Command::new("piper")
         .args(["--model", model, "--output_file", out_path])
         .stdin(Stdio::piped())
-        .stdout(Stdio::inherit())
+        .stdout(Stdio::null()) // Suppress piper's stdout
         .stderr(Stdio::inherit())
         .spawn()
         .expect("Failed to spawn piper process");
