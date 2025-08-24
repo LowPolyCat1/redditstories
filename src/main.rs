@@ -126,7 +126,10 @@ async fn main() -> anyhow::Result<()> {
         "-i",
         &combined_path,
         "-vf",
-        &format!("scale=1080:1920,subtitles={}:force_style='Fontsize=28,OutlineColour=&H000000&,Outline=3,Shadow=0'", srt_path),
+        &format!(
+            "scale=1080:1920,subtitles={}:force_style='Fontsize=28,OutlineColour=&H00C4903C&,Outline=3,Shadow=0,Alignment=10'",
+            srt_path
+        ),
         "-map",
         "0:v:0",
         "-map",
