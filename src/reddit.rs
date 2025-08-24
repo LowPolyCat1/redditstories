@@ -47,7 +47,6 @@ pub async fn fetch_reddit_story(subreddit: &str, limit: usize, min_chars: usize)
     let used_path = "./config/used_posts.json";
     let mut used_ids = load_used_ids(used_path)?;
 
-    // Forbidden words laden
     let forbidden_path = "./config/forbidden_words.txt";
     let forbidden = load_forbidden_words(forbidden_path);
     let max_words = 300;
@@ -68,7 +67,6 @@ pub async fn fetch_reddit_story(subreddit: &str, limit: usize, min_chars: usize)
             post.title.trim().to_string()
         };
 
-        // Sanetisierung anwenden
         if let Some(clean) = sanitize_post(&text, &forbidden, max_words) {
             if !clean.trim().is_empty() && clean.chars().count() >= min_chars {
                 info!("Selected post: {}", post.title);

@@ -47,24 +47,19 @@ pub fn load_forbidden_words(path: &str) -> Vec<String> {
         .collect()
 }
 
-/// Sanetisiert einen Reddit-Post-Text
 pub fn sanitize_post(text: &str, forbidden: &[String], max_words: usize) -> Option<String> {
-    // Entferne URLs
     let text = Regex::new(r"https?://\S+").unwrap().replace_all(text, "");
 
-    // Prüfe auf verbotene Wörter
     let lower = text.to_lowercase();
     if forbidden.iter().any(|w| lower.contains(w)) {
         return None;
     }
 
-    // Begrenze die Wortzahl
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.len() > max_words {
         return None;
     }
 
-    // Entferne nicht-ASCII-Zeichen (z.B. Emojis)
     let clean = text.chars().filter(|c| c.is_ascii()).collect::<String>();
     Some(clean.trim().to_string())
 }
