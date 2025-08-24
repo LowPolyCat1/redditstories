@@ -34,8 +34,8 @@ async fn main() -> anyhow::Result<()> {
     }
     info!("Background video found: {}", args.background);
 
-    info!("Fetching reddit story from r/{} (up to {} posts)", args.subreddit, args.try_posts);
-    let story = fetch_reddit_story(&args.subreddit, args.try_posts).await?;
+    info!("Fetching reddit story from r/{} (up to {} posts, min {} chars)", args.subreddit, args.try_posts, args.min_chars);
+    let story = fetch_reddit_story(&args.subreddit, args.try_posts, args.min_chars).await?;
     info!("Using story (short preview): {:.200}", story.replace('\n', " "));
 
     // Grammatik prüfen und korrigieren

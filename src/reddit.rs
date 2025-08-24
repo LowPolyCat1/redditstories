@@ -30,7 +30,7 @@ pub struct RedditPost {
     pub over_18: Option<bool>,
 }
 
-pub async fn fetch_reddit_story(subreddit: &str, limit: usize) -> anyhow::Result<String> {
+pub async fn fetch_reddit_story(subreddit: &str, limit: usize, min_chars: usize) -> anyhow::Result<String> {
     let url = format!("https://www.reddit.com/r/{}/hot.json?limit={}", subreddit, limit);
     let client = reqwest::Client::new();
     let res = client
@@ -70,7 +70,7 @@ pub async fn fetch_reddit_story(subreddit: &str, limit: usize) -> anyhow::Result
 
         // Sanetisierung anwenden
         if let Some(clean) = sanitize_post(&text, &forbidden, max_words) {
-            if !clean.trim().is_empty() {
+            if !clean.trim().is_empty() && clean.chars().count() >= min_chars {
                 info!("Selected post: {}", post.title);
                 used_ids.insert(post.id.clone());
                 save_used_ids(used_path, &used_ids)?;
