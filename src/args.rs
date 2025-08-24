@@ -5,13 +5,13 @@ pub struct Args {
     #[clap(long, default_value = "AITAH")]
     pub subreddit: String,
 
-    #[clap(long, default_value = "./res/bg2.mp4")]
+    #[clap(long, default_value = "./res/bg.mp4")]
     pub background: String,
 
-    #[clap(long, default_value = "final_video.mp4")]
+    #[clap(long, default_value = "out.mp4")]
     pub out: String,
 
-    #[clap(long, default_value = "./en_US-amy-medium.onnx")]
+    #[clap(long, default_value = "./tts/en_US-hfc_male-medium.onnx")]
     pub piper_model: String,
 
     #[clap(long, default_value_t = usize::MAX)]
