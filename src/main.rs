@@ -121,44 +121,80 @@ async fn main() -> anyhow::Result<()> {
     let mut srt_entries = Vec::new();
     let mut cumulative_seconds = 0.0_f64;
 
+    // --- Start of Updated Subtitle Logic ---
     for (i, part) in part_files.iter().enumerate() {
         let dur = wav_duration_seconds(part)?;
         info!("Chunk {} duration: {:.2} seconds", i, dur);
-        let start = cumulative_seconds;
-        let end = cumulative_seconds + dur;
+        let start_time_of_chunk = cumulative_seconds;
+        let end_time_of_chunk = cumulative_seconds + dur;
         let chunk_text = &chunks[i];
 
-        // Power law smoothing factor alpha < 1 for more time on short words
-        let alpha = 0.5;
+        // Step 1: Define realistic pause durations for punctuation (in seconds).
+        // You can tune these values to better match your chosen TTS voice.
+        const COMMA_PAUSE: f64 = 0.20; // 200ms pause for a comma
+        const SENTENCE_END_PAUSE: f64 = 0.40; // 400ms pause for a period/etc.
 
-        // Split chunk text into words
-        let words: Vec<&str> = chunk_text.split_whitespace().collect();
-        if words.is_empty() {
-            // no words, fallback to whole chunk subtitle
-            srt_entries.push((start, end, chunk_text.clone()));
-            cumulative_seconds = end;
+        // Step 2: Split the text into words AND punctuation marks.
+        let word_regex = Regex::new(r"(\w[\w'-]*)|([,.!?])").unwrap();
+        let elements: Vec<&str> = word_regex.find_iter(chunk_text).map(|m| m.as_str()).collect();
+
+        if elements.is_empty() {
+            // Fallback for empty or unusual chunks
+            srt_entries.push((start_time_of_chunk, end_time_of_chunk, chunk_text.clone()));
+            cumulative_seconds = end_time_of_chunk;
             continue;
         }
 
-        // Calculate total weight using powf(alpha)
-        let total_weight: f64 = words
+        // Step 3: Calculate the total estimated pause time within the chunk.
+        let mut total_pause_time = 0.0;
+        let mut word_elements = Vec::new();
+        for &element in &elements {
+            match element {
+                "," => total_pause_time += COMMA_PAUSE,
+                "." | "!" | "?" => total_pause_time += SENTENCE_END_PAUSE,
+                _ => word_elements.push(element), // It's a word
+            }
+        }
+
+        // Step 4: Calculate the time available for speaking words.
+        // This is the total duration minus our estimated pauses.
+        let word_time_available = (dur - total_pause_time).max(0.0);
+
+        // Step 5: Distribute the word-only time across the words using your weighting logic.
+        let alpha = 0.5;
+        let total_weight: f64 = word_elements
             .iter()
             .map(|w| (w.chars().count() as f64).powf(alpha))
             .sum();
 
-        let mut word_start = start;
-        for word in words {
-            let word_chars = word.chars().count();
-            let word_weight = (word_chars as f64).powf(alpha);
-            let word_duration = dur * word_weight / total_weight;
-            let word_end = word_start + word_duration;
+        let mut current_time_in_chunk = start_time_of_chunk;
+        for element in elements {
+            match element {
+                // If it's punctuation, we advance the clock but don't create a subtitle.
+                "," => current_time_in_chunk += COMMA_PAUSE,
+                "." | "!" | "?" => current_time_in_chunk += SENTENCE_END_PAUSE,
+                // If it's a word, we calculate its duration and create a subtitle entry.
+                word => {
+                    let word_weight = (word.chars().count() as f64).powf(alpha);
+                    let word_duration = if total_weight > 0.0 {
+                        word_time_available * word_weight / total_weight
+                    } else {
+                        // Avoid division by zero if there are no words
+                        0.0
+                    };
 
-            srt_entries.push((word_start, word_end, word.to_string()));
-            word_start = word_end;
+                    let word_start = current_time_in_chunk;
+                    let word_end = word_start + word_duration;
+
+                    srt_entries.push((word_start, word_end, word.to_string()));
+                    current_time_in_chunk = word_end;
+                }
+            }
         }
 
-        cumulative_seconds = end;
+        cumulative_seconds = end_time_of_chunk;
     }
+    // --- End of Updated Subtitle Logic ---
 
     let srt_path = format!("{}/subs.srt", tmp_dir);
     info!("Writing subtitles to {}", srt_path);
