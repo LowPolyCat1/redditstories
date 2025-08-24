@@ -1,3 +1,5 @@
+use serde_json::Value;
+use reqwest::Client;
 use regex::Regex;
 use tracing::warn;
 use std::fs::File;
@@ -35,7 +37,6 @@ pub fn chunk_text(text: &str, max_chars: usize) -> Vec<String> {
     chunks
 }
 
-/// Lädt verbotene Wörter aus einer Datei (je Zeile ein Wort)
 pub fn load_forbidden_words(path: &str) -> Vec<String> {
     let file = File::open(path).expect("forbidden_words.txt nicht gefunden");
     BufReader::new(file)
@@ -66,4 +67,39 @@ pub fn sanitize_post(text: &str, forbidden: &[String], max_words: usize) -> Opti
     // Entferne nicht-ASCII-Zeichen (z.B. Emojis)
     let clean = text.chars().filter(|c| c.is_ascii()).collect::<String>();
     Some(clean.trim().to_string())
+}
+
+
+pub async fn correct_grammar(text: &str) -> Option<String> {
+    let client = Client::new();
+    let params = [
+        ("language", "en-US"),
+        ("text", text),
+    ];
+    let resp = client.post("https://api.languagetoolplus.com/v2/check")
+        .form(&params)
+        .send()
+        .await
+        .ok()?;
+    let resp: Value = resp.json().await.ok()?;
+
+    let mut corrected = text.to_string();
+    if let Some(matches) = resp.get("matches").and_then(|m| m.as_array()) {
+        for m in matches.iter().rev() {
+            if let (Some(offset), Some(length), Some(replacements)) = (
+                m.get("offset").and_then(|o| o.as_u64()),
+                m.get("length").and_then(|l| l.as_u64()),
+                m.get("replacements").and_then(|r| r.as_array())
+            ) {
+                if let Some(replacement) = replacements.get(0).and_then(|r| r.get("value")).and_then(|v| v.as_str()) {
+                    let offset = offset as usize;
+                    let length = length as usize;
+                    if offset + length <= corrected.len() {
+                        corrected.replace_range(offset..offset+length, replacement);
+                    }
+                }
+            }
+        }
+    }
+    Some(corrected)
 }

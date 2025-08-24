@@ -10,8 +10,8 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
         let dur = wav_duration_seconds(part)?;
         let start_time_of_chunk = cumulative_seconds;
         let end_time_of_chunk = cumulative_seconds + dur;
-        const COMMA_PAUSE: f64 = 0.20;
-        const SENTENCE_END_PAUSE: f64 = 0.40;
+        const COMMA_PAUSE: f64 = 0.2;
+        const SENTENCE_END_PAUSE: f64 = 0.4;
         let word_regex = Regex::new(r"(\w[\w'-]*)|([,.!?])").unwrap();
         let elements: Vec<&str> = word_regex.find_iter(chunk_text).map(|m| m.as_str()).collect();
         if elements.is_empty() {

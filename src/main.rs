@@ -38,6 +38,18 @@ async fn main() -> anyhow::Result<()> {
     let story = fetch_reddit_story(&args.subreddit, args.try_posts).await?;
     info!("Using story (short preview): {:.200}", story.replace('\n', " "));
 
+    // Grammatik prüfen und korrigieren
+    let story = match crate::utils::correct_grammar(&story).await {
+        Some(corrected) => {
+            info!("Grammar corrected.");
+            corrected
+        },
+        None => {
+            warn!("Grammar correction failed, using original text.");
+            story
+        }
+    };
+
     let chunks = chunk_text(&story, args.chunk_chars);
     let num_chunks = chunks.len();
     info!("Split story into {} chunks", num_chunks);
