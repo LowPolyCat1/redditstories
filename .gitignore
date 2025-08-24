@@ -6,3 +6,4 @@ rs_tmp
 *.onnx.json
 res/*
 config/used_posts.json
+config/forbidden_words.txt
