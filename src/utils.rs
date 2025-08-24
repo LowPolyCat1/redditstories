@@ -76,7 +76,7 @@ pub async fn correct_grammar(text: &str) -> Option<String> {
         ("language", "en-US"),
         ("text", text),
     ];
-    let resp = client.post("https://api.languagetoolplus.com/v2/check")
+    let resp: reqwest::Response = client.post("https://api.languagetoolplus.com/v2/check")
         .form(&params)
         .send()
         .await
