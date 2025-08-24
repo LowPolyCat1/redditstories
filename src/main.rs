@@ -15,19 +15,19 @@ use tracing_subscriber;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[clap(long, default_value = "stories")]
+    #[clap(long, default_value = "AITAH")]
     subreddit: String,
 
-    #[clap(long)]
+    #[clap(long, default_value = "./res/bg2.mp4")]
     background: String,
 
     #[clap(long, default_value = "final_video.mp4")]
     out: String,
 
-    #[clap(long, default_value = "en_US-amy-medium.onnx")]
+    #[clap(long, default_value = "./en_US-amy-medium.onnx")]
     piper_model: String,
 
-    #[clap(long, default_value_t = 5)]
+    #[clap(long, default_value_t = 100)]
     try_posts: usize,
 
     #[clap(long, default_value_t = 250)]
