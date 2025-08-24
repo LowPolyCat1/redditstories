@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 use reqwest::header::USER_AGENT;
 use tracing::{debug, info};
+use crate::utils::{load_forbidden_words, sanitize_post};
 
 #[derive(Debug, Deserialize)]
 pub struct RedditListing {
@@ -46,6 +47,11 @@ pub async fn fetch_reddit_story(subreddit: &str, limit: usize) -> anyhow::Result
     let used_path = "./config/used_posts.json";
     let mut used_ids = load_used_ids(used_path)?;
 
+    // Forbidden words laden
+    let forbidden_path = "./config/forbidden_words.txt";
+    let forbidden = load_forbidden_words(forbidden_path);
+    let max_words = 300;
+
     for child in parsed.data.children {
         let post = child.data;
         let is_self = post.is_self.unwrap_or(true);
@@ -57,16 +63,19 @@ pub async fn fetch_reddit_story(subreddit: &str, limit: usize) -> anyhow::Result
         }
 
         let text = if is_self && !post.selftext.trim().is_empty() {
-            format!("{}.\n\n{}", post.title.trim(), post.selftext.trim())
+            format!("{}\n\n{}", post.title.trim(), post.selftext.trim())
         } else {
             post.title.trim().to_string()
         };
 
-        if !text.trim().is_empty() {
-            info!("Selected post: {}", post.title);
-            used_ids.insert(post.id.clone());
-            save_used_ids(used_path, &used_ids)?;
-            return Ok(text);
+        // Sanetisierung anwenden
+        if let Some(clean) = sanitize_post(&text, &forbidden, max_words) {
+            if !clean.trim().is_empty() {
+                info!("Selected post: {}", post.title);
+                used_ids.insert(post.id.clone());
+                save_used_ids(used_path, &used_ids)?;
+                return Ok(clean);
+            }
         }
     }
     anyhow::bail!("No suitable posts found in subreddit {}", subreddit);
