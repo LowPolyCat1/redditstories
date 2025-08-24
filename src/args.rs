@@ -14,9 +14,9 @@ pub struct Args {
     #[clap(long, default_value = "./en_US-amy-medium.onnx")]
     pub piper_model: String,
 
-    #[clap(long, default_value_t = 10)]
+    #[clap(long, default_value_t = usize::MAX)]
     pub try_posts: usize,
 
-    #[clap(long, default_value_t = 250)]
+    #[clap(long, default_value_t = usize::MAX)]
     pub chunk_chars: usize,
 }
