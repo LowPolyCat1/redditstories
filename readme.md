@@ -11,3 +11,9 @@ cargo run --release -- --subreddit AITAH --background ".\res\bg.mp4" --out out.m
 ## Recommended Subreddit
 
 AITAH
+AskReddit
+AmITheAsshole
+EntitledPeople
+
+
+cargo run --release -- --subreddit AITAH --background ".\res\bg.mp4" --out out.mp4 --piper-model ".\en_US-hfc_male-medium.onnx"
