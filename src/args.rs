@@ -20,6 +20,6 @@ pub struct Args {
     #[clap(long, default_value_t = 250)]
     pub chunk_chars: usize,
 
-    #[clap(long, default_value_t = 500)]
+    #[clap(long, default_value_t = 1000)]
     pub min_chars: usize,
 }
