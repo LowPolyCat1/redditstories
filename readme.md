@@ -12,13 +12,13 @@ cargo run --release -- --subreddit AITAH --background ".\res\bg.mp4" --out out.m
 
 ### AITAH
 
-AITAH
-AmITheAsshole
+r/AITAH
+r/AmITheAsshole
 r/AmItheButtface
 
 ### Entitlement
 
-EntitledPeople
+r/EntitledPeople
 r/ChoosingBeggars
 
 ### Confessions
@@ -57,7 +57,7 @@ r/Teachers
 
 ### AskReddit
 
-AskReddit
+r/AskReddit
 r/AskMen
 r/AskWomen
 
