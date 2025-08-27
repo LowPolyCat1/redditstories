@@ -1,13 +1,30 @@
+//! Subtitle generation and formatting utilities.
+//!
+//! This module handles the creation of SRT subtitle files with precise timing
+//! based on TTS audio chunks and text analysis.
+
 use regex::Regex;
 use std::fs::File;
 use std::io::Write;
 
+/// Builds SRT subtitle entries with precise timing from TTS audio chunks.
+///
+/// This function analyzes the generated TTS audio files and corresponding text
+/// to create properly timed subtitle entries. It accounts for silence periods,
+/// word-level timing, and natural pauses at punctuation marks.
+///
+/// # Arguments
+/// * `tts_results` - Vector of tuples containing (audio_file_path, text_content)
+///
+/// # Returns
+/// * `Ok(Vec<(f64, f64, String)>)` - Vector of (start_time, end_time, text) tuples
+/// * `Err` - If audio files cannot be analyzed or timing calculation fails
 pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<Vec<(f64, f64, String)>> {
     let mut srt_entries = Vec::new();
     let mut cumulative_seconds = 0.0_f64;
     for (_i, (part, chunk_text)) in tts_results.iter().enumerate() {
         let dur = crate::audio::wav_duration_seconds(part)?;
-        let leading_silence = crate::audio::detect_leading_silence(part, 500, 2000).unwrap_or(0.0); // Schwellenwert und Mindestlänge ggf. anpassen
+        let leading_silence = crate::audio::detect_leading_silence(part, 500, 2000).unwrap_or(0.0);
         let start_time_of_chunk = cumulative_seconds + leading_silence;
         let end_time_of_chunk = start_time_of_chunk + (dur - leading_silence);
         const COMMA_PAUSE: f64 = 0.2;
@@ -35,14 +52,12 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
         for element in elements {
             match element {
                 "," => {
-                    // Pause nach Komma als eigenen SRT-Eintrag
                     let pause_start = current_time_in_chunk;
                     let pause_end = pause_start + COMMA_PAUSE;
                     srt_entries.push((pause_start, pause_end, String::from(" ")));
                     current_time_in_chunk = pause_end;
                 },
                 "." | "!" | "?" | ";" => {
-                    // Pause nach Satzende als eigenen SRT-Eintrag
                     let pause_start = current_time_in_chunk;
                     let pause_end = pause_start + SENTENCE_END_PAUSE;
                     srt_entries.push((pause_start, pause_end, String::from(" ")));
@@ -65,6 +80,15 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
     Ok(srt_entries)
 }
 
+/// Writes subtitle entries to an SRT format file.
+///
+/// # Arguments
+/// * `path` - Output path for the SRT file
+/// * `entries` - Vector of (start_time, end_time, text) tuples
+///
+/// # Returns
+/// * `Ok(())` - If the file was successfully written
+/// * `Err` - If the file cannot be created or written to
 pub fn write_srt(path: &str, entries: &Vec<(f64, f64, String)>) -> anyhow::Result<()> {
     let mut f = File::create(path)?;
     for (i, (start, end, text)) in entries.iter().enumerate() {
@@ -78,6 +102,13 @@ pub fn write_srt(path: &str, entries: &Vec<(f64, f64, String)>) -> anyhow::Resul
     Ok(())
 }
 
+/// Formats a time value in seconds to SRT timestamp format (HH:MM:SS,mmm).
+///
+/// # Arguments
+/// * `seconds` - Time value in seconds
+///
+/// # Returns
+/// * `String` - Formatted timestamp in SRT format
 fn format_srt_time(seconds: f64) -> String {
     let total_ms = (seconds * 1000.0).round() as u64;
     let ms = total_ms % 1000;
@@ -89,6 +120,14 @@ fn format_srt_time(seconds: f64) -> String {
     format!("{:02}:{:02}:{:02},{:03}", h, m, s, ms)
 }
 
+/// Wraps text to fit within a specified character width for subtitle display.
+///
+/// # Arguments
+/// * `s` - Text to wrap
+/// * `width` - Maximum characters per line
+///
+/// # Returns
+/// * `Vec<String>` - Vector of wrapped text lines
 fn wrap_text(s: &str, width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current = String::new();

@@ -1,4 +1,9 @@
 
+//! Reddit Stories Video Generator
+//!
+//! This application fetches Reddit stories from specified subreddits and converts them
+//! into video content with text-to-speech narration and subtitles overlaid on a background video.
+
 mod args;
 use clap::Parser;
 mod reddit;
@@ -19,6 +24,16 @@ use std::fs::File;
 use std::io::Write;
 use std::process::Command;
 
+/// Main entry point for the Reddit stories video generator.
+///
+/// This function orchestrates the entire pipeline:
+/// 1. Fetches a suitable Reddit story from the specified subreddit
+/// 2. Applies grammar correction to the story text
+/// 3. Splits the text into manageable chunks for TTS processing
+/// 4. Generates audio files using Piper TTS for each chunk
+/// 5. Creates subtitle files with proper timing
+/// 6. Combines audio chunks and merges with background video
+/// 7. Outputs the final video with embedded subtitles
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -38,7 +53,6 @@ async fn main() -> anyhow::Result<()> {
     let story = fetch_reddit_story(&args.subreddit, args.try_posts, args.min_chars).await?;
     info!("Using story (short preview): {:.200}", story.replace('\n', " "));
 
-    // Grammatik prüfen und korrigieren
     let story = match crate::utils::correct_grammar(&story).await {
         Some(corrected) => {
             info!("Grammar corrected.");

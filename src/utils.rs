@@ -1,3 +1,8 @@
+//! Utility functions for text processing and content filtering.
+//!
+//! This module provides various text processing utilities including text chunking,
+//! content sanitization, grammar correction, and forbidden word filtering.
+
 use serde_json::Value;
 use reqwest::Client;
 use regex::Regex;
@@ -5,6 +10,18 @@ use tracing::warn;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+/// Splits text into chunks based on sentence boundaries and character limits.
+///
+/// This function intelligently breaks text at sentence endings while respecting
+/// the maximum character limit per chunk. This is essential for TTS processing
+/// to maintain natural speech patterns.
+///
+/// # Arguments
+/// * `text` - The input text to be chunked
+/// * `max_chars` - Maximum characters allowed per chunk
+///
+/// # Returns
+/// * `Vec<String>` - Vector of text chunks, each within the character limit
 pub fn chunk_text(text: &str, max_chars: usize) -> Vec<String> {
     let re = Regex::new(r"(?s)([^.!?]+[.!?]+)|([^.!?]+$)").unwrap();
     let mut sentences = Vec::new();
@@ -37,8 +54,18 @@ pub fn chunk_text(text: &str, max_chars: usize) -> Vec<String> {
     chunks
 }
 
+/// Loads a list of forbidden words from a text file for content filtering.
+///
+/// # Arguments
+/// * `path` - Path to the text file containing forbidden words (one per line)
+///
+/// # Returns
+/// * `Vec<String>` - Vector of lowercase forbidden words
+///
+/// # Panics
+/// * If the forbidden words file cannot be found or opened
 pub fn load_forbidden_words(path: &str) -> Vec<String> {
-    let file = File::open(path).expect("forbidden_words.txt nicht gefunden");
+    let file = File::open(path).expect("forbidden_words.txt not found");
     BufReader::new(file)
         .lines()
         .filter_map(Result::ok)
@@ -47,6 +74,17 @@ pub fn load_forbidden_words(path: &str) -> Vec<String> {
         .collect()
 }
 
+/// Sanitizes Reddit post content by removing URLs, checking for forbidden words,
+/// and enforcing word count limits.
+///
+/// # Arguments
+/// * `text` - The raw post text to sanitize
+/// * `forbidden` - List of forbidden words to check against
+/// * `max_words` - Maximum allowed word count
+///
+/// # Returns
+/// * `Some(String)` - Sanitized text if it passes all filters
+/// * `None` - If the text contains forbidden content or exceeds limits
 pub fn sanitize_post(text: &str, forbidden: &[String], max_words: usize) -> Option<String> {
     let text = Regex::new(r"https?://\S+").unwrap().replace_all(text, "");
 
@@ -65,6 +103,17 @@ pub fn sanitize_post(text: &str, forbidden: &[String], max_words: usize) -> Opti
 }
 
 
+/// Corrects grammar in text using the LanguageTool API.
+///
+/// This function sends text to the LanguageTool service for grammar checking
+/// and applies suggested corrections to improve text quality for TTS.
+///
+/// # Arguments
+/// * `text` - The text to check and correct
+///
+/// # Returns
+/// * `Some(String)` - Corrected text if the API call succeeds
+/// * `None` - If the API is unavailable or returns an error
 pub async fn correct_grammar(text: &str) -> Option<String> {
     let client = Client::new();
     let params = [
