@@ -65,10 +65,7 @@ pub async fn fetch_reddit_story(
     limit: usize,
     min_chars: usize,
 ) -> anyhow::Result<String> {
-    let url = format!(
-        "https://www.reddit.com/r/{}/hot.json?limit={}",
-        subreddit, limit
-    );
+    let url = format!("https://www.reddit.com/r/{subreddit}/hot.json?limit={limit}");
     let client = reqwest::Client::new();
     let res = client
         .get(&url)

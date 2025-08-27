@@ -3,8 +3,8 @@
 //! This module provides functionality to convert text chunks into audio files
 //! using the Piper TTS system.
 
-use std::process::{Command, Stdio};
 use std::io::Write;
+use std::process::{Command, Stdio};
 use tracing::error;
 
 /// Generates an audio file from text using the Piper TTS engine.
@@ -29,12 +29,15 @@ pub fn tts_generate_chunk(model: &str, text: &str, out_path: &str) -> anyhow::Re
         .spawn()
         .expect("Failed to spawn piper process");
 
-    {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        stdin.write_all(text.as_bytes())?;
-    }
-
-    let status = child.wait()?;
+    let status = {
+        let result = {
+            let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+            stdin.write_all(text.as_bytes())
+        };
+        let wait_result = child.wait();
+        result?;
+        wait_result?
+    };
     if !status.success() {
         error!("Piper TTS command failed for chunk: {}", out_path);
         anyhow::bail!("TTS engine failed for chunk, command returned non-zero");

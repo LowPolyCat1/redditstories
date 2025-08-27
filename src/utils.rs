@@ -3,12 +3,12 @@
 //! This module provides various text processing utilities including text chunking,
 //! content sanitization, grammar correction, and forbidden word filtering.
 
-use serde_json::Value;
-use reqwest::Client;
 use regex::Regex;
-use tracing::warn;
+use reqwest::Client;
+use serde_json::Value;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use tracing::warn;
 
 /// Splits text into chunks based on sentence boundaries and character limits.
 ///
@@ -68,7 +68,7 @@ pub fn load_forbidden_words(path: &str) -> Vec<String> {
     let file = File::open(path).expect("forbidden_words.txt not found");
     BufReader::new(file)
         .lines()
-        .filter_map(Result::ok)
+        .map_while(Result::ok)
         .map(|w| w.trim().to_lowercase())
         .filter(|w| !w.is_empty())
         .collect()
@@ -102,7 +102,6 @@ pub fn sanitize_post(text: &str, forbidden: &[String], max_words: usize) -> Opti
     Some(clean.trim().to_string())
 }
 
-
 /// Corrects grammar in text using the LanguageTool API.
 ///
 /// This function sends text to the LanguageTool service for grammar checking
@@ -116,11 +115,9 @@ pub fn sanitize_post(text: &str, forbidden: &[String], max_words: usize) -> Opti
 /// * `None` - If the API is unavailable or returns an error
 pub async fn correct_grammar(text: &str) -> Option<String> {
     let client = Client::new();
-    let params = [
-        ("language", "en-US"),
-        ("text", text),
-    ];
-    let resp: reqwest::Response = client.post("https://api.languagetoolplus.com/v2/check")
+    let params = [("language", "en-US"), ("text", text)];
+    let resp: reqwest::Response = client
+        .post("https://api.languagetoolplus.com/v2/check")
         .form(&params)
         .send()
         .await
@@ -133,13 +130,17 @@ pub async fn correct_grammar(text: &str) -> Option<String> {
             if let (Some(offset), Some(length), Some(replacements)) = (
                 m.get("offset").and_then(|o| o.as_u64()),
                 m.get("length").and_then(|l| l.as_u64()),
-                m.get("replacements").and_then(|r| r.as_array())
+                m.get("replacements").and_then(|r| r.as_array()),
             ) {
-                if let Some(replacement) = replacements.get(0).and_then(|r| r.get("value")).and_then(|v| v.as_str()) {
+                if let Some(replacement) = replacements
+                    .first()
+                    .and_then(|r| r.get("value"))
+                    .and_then(|v| v.as_str())
+                {
                     let offset = offset as usize;
                     let length = length as usize;
                     if offset + length <= corrected.len() {
-                        corrected.replace_range(offset..offset+length, replacement);
+                        corrected.replace_range(offset..offset + length, replacement);
                     }
                 }
             }

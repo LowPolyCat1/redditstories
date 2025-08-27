@@ -19,18 +19,25 @@ use std::io::Write;
 /// # Returns
 /// * `Ok(Vec<(f64, f64, String)>)` - Vector of (start_time, end_time, text) tuples
 /// * `Err` - If audio files cannot be analyzed or timing calculation fails
-pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<Vec<(f64, f64, String)>> {
+pub fn build_srt_entries(
+    tts_results: &[(String, String)],
+) -> anyhow::Result<Vec<(f64, f64, String)>> {
     let mut srt_entries = Vec::new();
     let mut cumulative_seconds = 0.0_f64;
-    for (_i, (part, chunk_text)) in tts_results.iter().enumerate() {
+    for (part, chunk_text) in tts_results.iter() {
         let dur = crate::audio::wav_duration_seconds(part)?;
         let leading_silence = crate::audio::detect_leading_silence(part, 500, 2000).unwrap_or(0.0);
         let start_time_of_chunk = cumulative_seconds + leading_silence;
         let end_time_of_chunk = start_time_of_chunk + (dur - leading_silence);
         const COMMA_PAUSE: f64 = 0.2;
         const SENTENCE_END_PAUSE: f64 = 0.4;
-        let word_regex = Regex::new(r"(\w[\w'-]*)|([,.!?])").unwrap();
-        let elements: Vec<&str> = word_regex.find_iter(chunk_text).map(|m| m.as_str()).collect();
+        static WORD_REGEX: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"(\w[\w'-]*)|([,.!?])").unwrap());
+        let word_regex = &*WORD_REGEX;
+        let elements: Vec<&str> = word_regex
+            .find_iter(chunk_text)
+            .map(|m| m.as_str())
+            .collect();
         if elements.is_empty() {
             srt_entries.push((start_time_of_chunk, end_time_of_chunk, chunk_text.clone()));
             cumulative_seconds = end_time_of_chunk;
@@ -47,7 +54,10 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
         }
         let word_time_available = (dur - leading_silence - total_pause_time).max(0.0);
         let alpha = 0.75;
-        let total_weight: f64 = word_elements.iter().map(|w| (w.chars().count() as f64).powf(alpha)).sum();
+        let total_weight: f64 = word_elements
+            .iter()
+            .map(|w| (w.chars().count() as f64).powf(alpha))
+            .sum();
         let mut current_time_in_chunk = start_time_of_chunk;
         for element in elements {
             match element {
@@ -56,18 +66,20 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
                     let pause_end = pause_start + COMMA_PAUSE;
                     srt_entries.push((pause_start, pause_end, String::from(" ")));
                     current_time_in_chunk = pause_end;
-                },
+                }
                 "." | "!" | "?" | ";" => {
                     let pause_start = current_time_in_chunk;
                     let pause_end = pause_start + SENTENCE_END_PAUSE;
                     srt_entries.push((pause_start, pause_end, String::from(" ")));
                     current_time_in_chunk = pause_end;
-                },
+                }
                 word => {
                     let word_weight = (word.chars().count() as f64).powf(alpha);
                     let word_duration = if total_weight > 0.0 {
                         word_time_available * word_weight / total_weight
-                    } else { 0.0 };
+                    } else {
+                        0.0
+                    };
                     let word_start = current_time_in_chunk;
                     let word_end = word_start + word_duration;
                     srt_entries.push((word_start, word_end, word.to_string()));
@@ -89,13 +101,18 @@ pub fn build_srt_entries(tts_results: &Vec<(String, String)>) -> anyhow::Result<
 /// # Returns
 /// * `Ok(())` - If the file was successfully written
 /// * `Err` - If the file cannot be created or written to
-pub fn write_srt(path: &str, entries: &Vec<(f64, f64, String)>) -> anyhow::Result<()> {
+pub fn write_srt(path: &str, entries: &[(f64, f64, String)]) -> anyhow::Result<()> {
     let mut f = File::create(path)?;
     for (i, (start, end, text)) in entries.iter().enumerate() {
         writeln!(f, "{}", i + 1)?;
-        writeln!(f, "{} --> {}", format_srt_time(*start), format_srt_time(*end))?;
+        writeln!(
+            f,
+            "{} --> {}",
+            format_srt_time(*start),
+            format_srt_time(*end)
+        )?;
         for line in wrap_text(text, 80) {
-            writeln!(f, "{}", line)?;
+            writeln!(f, "{line}")?;
         }
         writeln!(f)?;
     }
@@ -117,7 +134,7 @@ fn format_srt_time(seconds: f64) -> String {
     let total_min = total_sec / 60;
     let m = total_min % 60;
     let h = total_min / 60;
-    format!("{:02}:{:02}:{:02},{:03}", h, m, s, ms)
+    format!("{h:02}:{m:02}:{s:02},{ms:03}")
 }
 
 /// Wraps text to fit within a specified character width for subtitle display.
