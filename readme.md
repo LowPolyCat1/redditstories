@@ -15,11 +15,13 @@ A Rust application that automatically creates engaging video content from Reddit
 ## Requirements
 
 ### System Dependencies
+
 - **Rust** (latest stable version)
 - **Piper TTS** - Download from [Piper releases](https://github.com/rhasspy/piper/releases)
 - **FFmpeg** - For video processing and encoding
 
 ### Installation
+
 1. Install Rust from [rustup.rs](https://rustup.rs/)
 2. Install FFmpeg:
    - Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
@@ -30,6 +32,7 @@ A Rust application that automatically creates engaging video content from Reddit
 ## Quick Start
 
 1. **Clone and build the project:**
+
    ```bash
    git clone <repository-url>
    cd reddit-stories
@@ -37,7 +40,8 @@ A Rust application that automatically creates engaging video content from Reddit
    ```
 
 2. **Set up required directories and files:**
-   ```
+
+   ```txt
    res/
    ├── bg.mp4          # Background video file
    tts/
@@ -48,6 +52,7 @@ A Rust application that automatically creates engaging video content from Reddit
    ```
 
 3. **Run the application:**
+
    ```bash
    cargo run --release -- --subreddit AITAH --background "./res/bg.mp4" --out out.mp4 --piper-model "./tts/en_US-hfc_male-medium.onnx"
    ```
@@ -67,36 +72,43 @@ A Rust application that automatically creates engaging video content from Reddit
 ## Recommended Subreddits
 
 ### Story-Based Content
+
 - **AITAH**: `AITAH`, `AmITheAsshole`, `AmItheButtface`
 - **Confessions**: `offmychest`, `TrueOffMyChest`, `Confessions`
 - **Relationship**: `RelationshipAdvice`, `relationships`, `dating_advice`
 - **Drama**: `MaliciousCompliance`, `ProRevenge`, `NuclearRevenge`, `PettyRevenge`
 
 ### Workplace & Life
+
 - **Work Stories**: `AntiWork`, `WorkReform`, `Teachers`
 - **Service Industry**: `TalesFromYourServer`, `TalesFromTechSupport`
 - **Personal**: `TodayIFuckedUp`, `TooAfraidToAsk`
 
 ### Entertainment
+
 - **Entitlement**: `EntitledPeople`, `ChoosingBeggars`
 - **Questions**: `AskReddit`, `AskMen`, `AskWomen`
 
 ## Configuration Files
 
 ### Forbidden Words (`config/forbidden_words.txt`)
+
 Create a text file with words to filter out, one per line:
-```
+
+```txt
 spam
 advertisement
 promotion
 ```
 
 ### Used Posts (`config/used_posts.json`)
+
 Automatically managed JSON file tracking processed posts to prevent duplicates.
 
 ## TTS Models
 
 Download Piper TTS models from the [official repository](https://github.com/rhasspy/piper/releases). Recommended models:
+
 - `en_US-hfc_male-medium.onnx` - Natural male voice
 - `en_US-amy-medium.onnx` - Clear female voice
 - `en_US-lessac-medium.onnx` - Professional narrator voice
@@ -104,6 +116,7 @@ Download Piper TTS models from the [official repository](https://github.com/rhas
 ## Video Output
 
 The generated videos feature:
+
 - **Resolution**: 1080x1920 (vertical format for mobile)
 - **Frame Rate**: 60 FPS
 - **Subtitles**: Embedded with custom styling
@@ -113,12 +126,14 @@ The generated videos feature:
 ## Troubleshooting
 
 ### Common Issues
+
 1. **"Piper not found"**: Ensure Piper is installed and in your PATH
 2. **"FFmpeg failed"**: Check FFmpeg installation and file permissions
 3. **"No suitable posts found"**: Try different subreddits or adjust `--min-chars`
 4. **Grammar correction fails**: Network issue with LanguageTool API (continues with original text)
 
 ### Performance Tips
+
 - Use `--release` flag for faster processing
 - Adjust `--chunk-chars` for different TTS processing speeds
 - Use SSD storage for temporary files during processing
