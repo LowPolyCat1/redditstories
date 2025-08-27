@@ -131,17 +131,15 @@ pub async fn correct_grammar(text: &str) -> Option<String> {
                 m.get("offset").and_then(|o| o.as_u64()),
                 m.get("length").and_then(|l| l.as_u64()),
                 m.get("replacements").and_then(|r| r.as_array()),
-            ) {
-                if let Some(replacement) = replacements
-                    .first()
-                    .and_then(|r| r.get("value"))
-                    .and_then(|v| v.as_str())
-                {
-                    let offset = offset as usize;
-                    let length = length as usize;
-                    if offset + length <= corrected.len() {
-                        corrected.replace_range(offset..offset + length, replacement);
-                    }
+            ) && let Some(replacement) = replacements
+                .first()
+                .and_then(|r| r.get("value"))
+                .and_then(|v| v.as_str())
+            {
+                let offset = offset as usize;
+                let length = length as usize;
+                if offset + length <= corrected.len() {
+                    corrected.replace_range(offset..offset + length, replacement);
                 }
             }
         }

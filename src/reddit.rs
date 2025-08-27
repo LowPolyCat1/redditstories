@@ -101,14 +101,15 @@ pub async fn fetch_reddit_story(
             post.title.trim().to_string()
         };
 
-        if let Some(clean) = sanitize_post(&text, &forbidden, max_words) {
-            if !clean.trim().is_empty() && clean.chars().count() >= min_chars {
-                let corrected = correct_grammar(&clean).await.unwrap_or(clean.clone());
-                info!("Selected post: {}", post.title);
-                used_ids.insert(post.id.clone());
-                save_used_ids(used_path, &used_ids)?;
-                return Ok(corrected);
-            }
+        if let Some(clean) = sanitize_post(&text, &forbidden, max_words)
+            && !clean.trim().is_empty()
+            && clean.chars().count() >= min_chars
+        {
+            let corrected = correct_grammar(&clean).await.unwrap_or(clean.clone());
+            info!("Selected post: {}", post.title);
+            used_ids.insert(post.id.clone());
+            save_used_ids(used_path, &used_ids)?;
+            return Ok(corrected);
         }
     }
     anyhow::bail!("No suitable posts found in subreddit {}", subreddit);
