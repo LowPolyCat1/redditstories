@@ -12,6 +12,12 @@ A Rust application that automatically creates engaging video content from Reddit
 - **Duplicate Prevention**: Tracks used posts to avoid repetition
 - **Customizable Output**: Configurable video resolution, subtitle styling, and more
 
+## Example
+
+<video controls width="600">
+  <source src="./example.mp4" type="video/mp4">
+</video>
+
 ## Requirements
 
 ### System Dependencies
