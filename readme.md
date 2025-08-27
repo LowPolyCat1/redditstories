@@ -14,9 +14,7 @@ A Rust application that automatically creates engaging video content from Reddit
 
 ## Example
 
-<video controls width="600">
-  <source src="./example.mp4" type="video/mp4">
-</video>
+Example [Example mp4](./example.mp4)
 
 ## Requirements
 
