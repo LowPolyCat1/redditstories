@@ -122,15 +122,13 @@ async fn main() -> anyhow::Result<()> {
     write_srt(&srt_path, &srt_entries)?;
 
     let concat_list = format!("{tmp_dir}/files.txt");
-    {
-        let mut f = File::create(&concat_list)?;
-        for p in tts_results.iter().map(|(p, _)| p) {
-            let fname = Path::new(p)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?;
-            writeln!(f, "file '{fname}'")?;
-        }
+    let mut f = File::create(&concat_list)?;
+    for p in tts_results.iter().map(|(p, _)| p) {
+        let fname = Path::new(p)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?;
+        writeln!(f, "file '{fname}'")?;
     }
     info!("Created concat list file {}", concat_list);
 
