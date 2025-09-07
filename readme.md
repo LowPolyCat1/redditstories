@@ -1,3 +1,11 @@
+[![License](https://img.shields.io/github/license/lowpolycat1/redditstories.svg?style=flat-square)](LICENSE.txt)
+&nbsp;
+[![Contributors](https://img.shields.io/github/contributors/lowpolycat1/redditstories.svg?style=flat-square)](https://github.com/lowpolycat1/image-ascii-rs/graphs/contributors/)
+&nbsp;
+[![Rust](https://img.shields.io/badge/Rust-Stable-blue.svg?style=flat-square)](https://www.rust-lang.org/)
+&nbsp;
+[![Clap Crates](https://img.shields.io/crates/v/clap.svg)](https://crates.io/crates/clap)
+
 # Reddit Stories Video Generator
 
 A Rust application that automatically creates engaging video content from Reddit stories. The tool fetches stories from specified subreddits, converts them to speech using Piper TTS, and combines them with background video and synchronized subtitles.
